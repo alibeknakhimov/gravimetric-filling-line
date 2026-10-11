@@ -1,0 +1,49 @@
+# ----- Previous developer's code: never commit -----
+FitoF1old/
+FitoF4old/
+
+# ----- Vendor manual: link to manufacturer instead -----
+QLST_User_manual_*.pdf
+
+# ----- STM32CubeIDE / MDK build artifacts -----
+Debug/
+Release/
+build/
+*.o
+*.d
+*.su
+*.cyclo
+*.map
+*.list
+*.lst
+*.elf
+*.bin
+*.hex
+*.axf
+*.htm
+
+# ----- IDE / tooling -----
+.vscode/
+.idea/
+.settings/
+.cproject
+.project
+*.launch
+
+# ----- OS -----
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ----- Nested git repos inside firmware/ (keep source, not history) -----
+firmware/**/.git/
+
+# ----- Vendor packs we do NOT need (STM32F4 project doesn't use these) -----
+firmware/MDK-ARM/
+firmware/Documents/
+firmware/Drivers/CMSIS/Lib/
+firmware/Drivers/CMSIS/DSP/
+firmware/Drivers/CMSIS/NN/
+firmware/Drivers/CMSIS/RTOS/
+firmware/Drivers/CMSIS/RTOS2/
+firmware/Drivers/CMSIS/docs/
