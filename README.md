@@ -1,4 +1,4 @@
-# Industrial Fill-by-Weight Line — Firmware Modernization
+# Industrial Fill-by-Weight Line: Firmware Modernization
 
 > Brownfield modernization of a 5-column pharmaceutical liquid filling machine.
 > Replaced a blocking HX711 weighing MCU with industrial Modbus RTU indicators,
@@ -49,11 +49,11 @@ A longer continuous run of the line in operation:
 | | Legacy (2021) | Final (this project) |
 |---|---|---|
 | Weighing front-end | Custom PCB with 5× HX711, bit-banged by STM32F1 | 5× QLST industrial indicators on an RS-485 Modbus RTU bus (addresses 1..5, 115 200 bps) |
-| Weighing MCU | Dedicated board, blocking `while(1)` polling | **Removed** — one MCU less, one PCB less, one ribbon cable less |
+| Weighing MCU | Dedicated board, blocking `while(1)` polling | **Removed**: one MCU less, one PCB less, one ribbon cable less |
 | Bus wiring | Parallel ribbon to the HX711 board | 2-wire RS-485 differential, add a sensor by chaining |
-| Calibration | 2 buttons + 16×2 LCD on the hidden PCB | Buttons + display on each QLST indicator — operator-serviceable |
+| Calibration | 2 buttons + 16×2 LCD on the hidden PCB | Buttons + display on each QLST indicator: operator-serviceable |
 | MCU → MCU link | Original cable from the HX711 board | Custom RS-485↔UART shield that **re-uses the existing cable connector** on the stepper board (no changes to that PCB) |
-| HMI link | Long UART cable to a Raspberry Pi | USB CDC — single cable, standard VCP driver |
+| HMI link | Long UART cable to a Raspberry Pi | USB CDC: single cable, standard VCP driver |
 | Firmware structure | Entire application inside TIM6 ISR; drum, nozzles, pumps and sensing all competing in one 10 kHz interrupt | TIM6 ISR owns timing-critical motion; the drum-position event is caught by its own EXTI line (decoupled from the 10 kHz tick); Modbus runs as a non-blocking state machine driven from the main loop with IT-based byte RX |
 | Fill control | Bang-bang: pump on if `g < target − 10`, off at `target − 1.5` | Soft start → fast fill → nozzle rises proportionally to current mass → slow finish → drip tail → hard stop |
 | Throughput | **480 bottles/hour** | **650 bottles/hour (+35 %)** |
@@ -63,8 +63,8 @@ Architecture diagrams: see [`docs/architecture.md`](docs/architecture.md).
 ### Development process (not a release train)
 
 The firmware under `firmware/` is the single deployed version. Some
-sub-features — for example moving the drum-position event onto its own EXTI
-line, decoupled from the 10 kHz TIM6 tick — were first prototyped on a
+sub-features, for example moving the drum-position event onto its own EXTI
+line, decoupled from the 10 kHz TIM6 tick, were first prototyped on a
 side configuration before being merged into the production firmware. That
 side configuration is not part of this repository; it existed only as a
 local experiment.
@@ -88,7 +88,7 @@ the deployed machine; it does not reproduce his design files.
 
 ## 4. The three months in the field
 
-The real story is not the architecture — it's what happened once the machine
+The real story is not the architecture: it's what happened once the machine
 had to run bottles every day. Compressed version:
 
 - hacking an existing HX711 pin to carry UART before committing to the shield;
@@ -107,7 +107,7 @@ Week-by-week log with root causes and fixes:
 ## 5. Fill algorithm (the part that moved the numbers)
 
 Dose profile is parameterised in deci-grams against a 93 g reference dose.
-Nozzle height is a function of current fill mass, not of time — the nozzle
+Nozzle height is a function of current fill mass, not of time: the nozzle
 sits low until the liquid surface comes up to meet it, then rises
 proportionally so the stream never free-falls more than ~5 mm. Pump speed has
 four phases: `SOFT_START → FAST → SLOW → DRIP_TAIL`, each driven by a
@@ -135,8 +135,8 @@ Prototype on a green proto-board. The original 2021 ribbon cable from the
 HX711 PCB terminates into the stepper board's existing connector; I identified
 the two pins carrying the HX711 CLK/DATA signals on that connector, re-purposed
 them as UART TX/RX, and routed them into a MAX485-class transceiver with DE/RE
-driven in software. This way **the stepper PCB is physically unmodified** —
-pull the shield, plug the old HX711 board back in, and the machine reverts
+driven in software. This way **the stepper PCB is physically unmodified**.
+Pull the shield, plug the old HX711 board back in, and the machine reverts
 to the previous configuration.
 
 Pinout, transceiver, EMI countermeasures and what I'd do with another
@@ -146,7 +146,7 @@ revision: [`docs/shield.md`](docs/shield.md).
 
 - Split NVIC priorities properly: group drum stepping at a higher preemption
   priority than USART2 RX, instead of leaning on the state machine to keep
-  them from fighting (both are currently at priority 0/0 — it works, but it's
+  them from fighting (both are currently at priority 0/0, and it works, but it is
   fragile).
 - Isolated DC-DC + reference ground on the RS-485 side, instead of a shared
   ground over an 80 cm run. I knew this at the time; the isolated converter
@@ -164,9 +164,9 @@ firmware I have local access to. The actually-deployed build differs in one
 specific area: the interrupt configuration (NVIC priorities and the
 split between the TIM6 motion tick and the drum-position event) matches a
 side configuration I used to prototype that split before merging it back
-into the main firmware. The business logic — Modbus RTU master, USB CDC
+into the main firmware. The business logic (Modbus RTU master, USB CDC
 HMI link, fill algorithm with soft-start and nozzle tracking, drum / nozzle /
-pump motion — is the same between the snapshot in this repo and the
+pump motion) is the same between the snapshot in this repo and the
 deployed build.
 
 I have called this out explicitly rather than silently publishing the
@@ -177,19 +177,19 @@ distinction is the kind of thing that would come up and should come up.
 
 ```
 .
-├── README.md                 — you are here
-├── README.ru.md              — Russian version
-├── LICENSE                   — MIT (my sources only)
+├── README.md: you are here
+├── README.ru.md: Russian version
+├── LICENSE: MIT (my sources only)
 ├── docs/
-│   ├── architecture.md       — before / after block diagrams (Mermaid)
-│   ├── fill-algorithm.md     — dose profile, nozzle tracking, pump phases
-│   ├── modbus.md             — QLST register map, state machine, timing
-│   ├── shield.md             — RS-485↔UART adapter board
-│   ├── legacy.md             — what the previous system looked like (my words)
-│   ├── field-notes.md        — three months of field debugging
-│   ├── images/               — photos
-│   └── videos/               — short clips (single_fill.mp4)
-└── firmware/                 — closest snapshot of the production firmware (STM32F4)
+│   ├── architecture.md: before / after block diagrams (Mermaid)
+│   ├── fill-algorithm.md: dose profile, nozzle tracking, pump phases
+│   ├── modbus.md: QLST register map, state machine, timing
+│   ├── shield.md: RS-485↔UART adapter board
+│   ├── legacy.md: what the previous system looked like (my words)
+│   ├── field-notes.md: three months of field debugging
+│   ├── images/: photos
+│   └── videos/: short clips (single_fill.mp4)
+└── firmware/: closest snapshot of the production firmware (STM32F4)
 ```
 
 ## 11. Disclaimers

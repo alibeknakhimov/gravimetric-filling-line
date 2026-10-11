@@ -4,9 +4,9 @@
 |---|---|---|
 | `01_machine_overview.jpg` | ✅ present | Full view of the 5-column filling machine with drum and nozzles. |
 | `02_shield_top.jpg` | ✅ present | My RS-485↔UART shield, top view. |
-| `03_shield_mounted.jpg` | ⬜ missing — welcome | The shield plugged into the original BRD2 connector on the stepper board. |
+| `03_shield_mounted.jpg` | ⬜ missing: welcome | The shield plugged into the original BRD2 connector on the stepper board. |
 | `04_qlst_indicator.jpg` | ✅ present | A single QLST weighing indicator with display and buttons. |
-| `05_harness_new.jpg` | ⬜ missing — welcome | New loom with ferrules, snap-off connectors, twisted pair for Modbus. |
+| `05_harness_new.jpg` | ⬜ missing: welcome | New loom with ferrules, snap-off connectors, twisted pair for Modbus. |
 | `06_field_closeup.jpg` | ✅ present | Close-up of the nozzle + load cell + bottle on the drum carrier. |
 
 If you add 03 or 05 later, drop them in with the exact filenames above and

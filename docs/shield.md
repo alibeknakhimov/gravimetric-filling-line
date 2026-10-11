@@ -18,8 +18,8 @@ Hand-wired on a green prototyping board. Visible from the top view:
 - **Screw terminals** for the RS-485 bus (A / B / GND and power).
 - **2×5 IDC header** that fits the ribbon cable connector that previously
   carried HX711 CLK / DATA / power to the old weighing board. Two of those
-  pins — the ones that used to be HX711 CLK and DATA on one of the five
-  channels — are now routed through the shield as UART TX / RX from the
+  pins, the ones that used to be HX711 CLK and DATA on one of the five
+  channels, are now routed through the shield as UART TX / RX from the
   stepper MCU.
 
 ## Why those two pins
@@ -29,7 +29,7 @@ MCU side of the HX711 CLK / DATA pair on channel 5 happened to be a pair
 of GPIOs with alternate-function UART capability on the STM32F4 stepper
 board. That meant I could re-map those pins in the stepper firmware from
 GPIO to USART2, run the ribbon cable through the shield, and feed the same
-two conductors into the MAX485 transceiver — all without changing a single
+two conductors into the MAX485 transceiver, all without changing a single
 trace on the stepper board.
 
 The side effect: pull the shield, plug the original HX711-side ribbon back

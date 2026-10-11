@@ -43,38 +43,38 @@
 #define TARGET_BOTTLES 5
 
 // Мягкость розлива против всплесков на этикетку (крутить вручную):
-//   0  — агрессивнее / быстрее, сопло чуть выше, дольше быстрый насос
-//   5  — норма (старт)
-//  10 — мягче: сопло ближе к зеркалу, раньше замедление насоса
+//   0 : агрессивнее / быстрее, сопло чуть выше, дольше быстрый насос
+//   5 : норма (старт)
+//  10: мягче: сопло ближе к зеркалу, раньше замедление насоса
 #define SPLASH_SOFTNESS 5
 /* Скорости насоса (период импульсов в тиках TIM6-счётчика rozliv_count):
- *   rozliv=1 — быстро: было >1 (каждые 2 тика); >0 = каждый тик (~×2)
- *   rozliv=3 — мягкий старт (между быстрым и СТАРЫМ медленным >10)
- *   rozliv=2 — финиш, ~в 1.75 раза медленнее старого (>10 → >18) */
+ *   rozliv=1: быстро: было >1 (каждые 2 тика); >0 = каждый тик (~×2)
+ *   rozliv=3: мягкий старт (между быстрым и СТАРЫМ медленным >10)
+ *   rozliv=2: финиш, ~в 1.75 раза медленнее старого (>10 → >18) */
 #define ROZLIV_SOFT_PERIOD  5
 #define ROZLIV_SLOW_PERIOD  18
 #define ROZLIV_FAST_PERIOD  1   /* было 0 (каждый тик = опасно у горла); 1 = спокойнее */
 
 /*
- * Пороги налиты/отлажены на режиме 93 г (REF). Для 50 г те же доли от дозы —
+ * Пороги налиты/отлажены на режиме 93 г (REF). Для 50 г те же доли от дозы :
  * поведение как на 93, только сжатое по массе.
  */
 #define REF_DOSE_DG              930  /* ves=93 → дециграммы */
 #define SOFT_START_DG_93         50   /* ~5 г мягкий насос */
-#define FILL_ARM_DG_93           100  /* ~10 г — старт флага у дна */
-#define LIFT_FOLLOW_START_DG_93  310  /* ~31 г — начало подъёма сопла */
+#define FILL_ARM_DG_93           100  /* ~10 г: старт флага у дна */
+#define LIFT_FOLLOW_START_DG_93  310  /* ~31 г: начало подъёма сопла */
 #define DRIP_TAIL_DG_93          20   /* запас до капельного стопа */
 #define STOP_TAIL_DG_93          35   /* жёсткий стоп до цели */
 
 /*
  * Высота сопла (как на учебном стенде, НЕ через «offset»):
- * 1) пока масса мала — сопло СИДИТ у низа (spusk), пока зеркало не подойдёт;
+ * 1) пока масса мала: сопло СИДИТ у низа (spusk), пока зеркало не подойдёт;
  * 2) затем поднимается пропорционально массе, но только на долю хода.
- * NOZZLE_RISE_PERMILLE — основной зазор (от 350): 635 ≈ ещё чуть больше после 580.
- * К концу дозы — доподъём (NOZZLE_END_*).
+ * NOZZLE_RISE_PERMILLE: основной зазор (от 350): 635 ≈ ещё чуть больше после 580.
+ * К концу дозы: доподъём (NOZZLE_END_*).
  */
 #define NOZZLE_RISE_PERMILLE      635
-#define NOZZLE_END_START_PERMILLE 850  /* с ~85% дозы — доподъём */
+#define NOZZLE_END_START_PERMILLE 850  /* с ~85% дозы: доподъём */
 #define NOZZLE_END_RISE_PERMILLE  980  /* финиш: почти полный ход вверх */
 //========================================================
 
@@ -206,7 +206,7 @@ uint8_t scale_updated[5] = {0, 0, 0, 0, 0};
 /* Время последнего успешного Modbus-ответа по каждой колонне (для стопа при «слепых» весах) */
 uint32_t scale_last_ok_ms[5] = {0, 0, 0, 0, 0};
 uint32_t fill_start_ms = 0; /* момент входа в rezhim==3 */
-uint8_t fill_dose_hit[5] = {0, 0, 0, 0, 0}; /* доза однажды достигнута — насос больше не включать */
+uint8_t fill_dose_hit[5] = {0, 0, 0, 0, 0}; /* доза однажды достигнута: насос больше не включать */
 
 typedef enum { MODBUS_IDLE, MODBUS_WAIT_RESPONSE } modbus_state_t;
 modbus_state_t modbus_state = MODBUS_IDLE;
@@ -229,10 +229,10 @@ uint8_t tare_button_done = 0; /* один сброс на одно удержа�
 #define FILL_MAX_MS         45000 /* аварийный стоп всего налива */
 
 /* USB CDC: снимок в usb_mass_request_send(); отправка фоном из TIM6 (~5 мс),
- * даже во время HAL_Delay / tare. Сам TX — в USB IRQ. DMA не нужен.
+ * даже во время HAL_Delay / tare. Сам TX: в USB IRQ. DMA не нужен.
  * Формат: m1;m2;m3;m4;m5;dose;st\r\n
- *   dose — 50 или 93
- *   st   — 0 обычный (брутто), 1 налив (нетто), 2 факт налива (нетто, удержание) */
+ *   dose: 50 или 93
+ *   st  : 0 обычный (брутто), 1 налив (нетто), 2 факт налива (нетто, удержание) */
 extern USBD_HandleTypeDef hUsbDeviceFS;
 static int usb_mass_snap[5];
 static int usb_snap_dose;
@@ -294,7 +294,7 @@ static uint8_t *usb_append_int(uint8_t *p, int v)
   return p;
 }
 
-/* Фоновая отправка: вызов из TIM6 (не из while). Если CDC занят — выход сразу. */
+/* Фоновая отправка: вызов из TIM6 (не из while). Если CDC занят: выход сразу. */
 static void usb_mass_poll(void)
 {
   uint8_t *p;
@@ -435,7 +435,7 @@ void modbus_process(void) {
 
 /*
  * Алгоритм розлива: мягкий старт → подъём сопла → ступени → стоп.
- * Жёстко: стоп по дозе и пауза без свежих весов — ДО любых early return.
+ * Жёстко: стоп по дозе и пауза без свежих весов: ДО любых early return.
  */
 static void fill_channel_force_stop(int *flag_rozliv, int *flag_count,
                                     int *updown, int *rozliv, int *zakr)
@@ -523,7 +523,7 @@ static void update_fill_channel(int vesy_i, int *flag_rozliv, int *flag_count,
     if (ch >= 0 && ch < 5) {
       age = now - scale_last_ok_ms[ch];
       if (scale_last_ok_ms[ch] == 0 || age > FILL_SCALE_STALE_MS) {
-        *rozliv = 0; /* эта колонна молчит — импульсы стоп; остальные не трогаем */
+        *rozliv = 0; /* эта колонна молчит: импульсы стоп; остальные не трогаем */
         return;
       }
     }
@@ -538,7 +538,7 @@ static void update_fill_channel(int vesy_i, int *flag_rozliv, int *flag_count,
     fill_range = 1;
   }
 
-  /* Старт насоса у дна — мягкий режим; НЕ ставить ss2=spusk2 */
+  /* Старт насоса у дна: мягкий режим; НЕ ставить ss2=spusk2 */
   if (vesy_i < fill_arm_dg && *flag_count == 0 && d > (spusk - 10)) {
     *flag_count = 1;
     *rozliv = 3;
@@ -714,7 +714,7 @@ void cancel_tare_all_scales(void) {
 void tare_all_scales(void) {
   /* Было опасно: 0x12=1 = ZERO CALIBRATION (портит калибровку в EEPROM).
    * Нужно оператору: обнулить показания (peeling), как в мануале QLST:
-   *   01 06 00 11 00 01  — write 1 to reg 17
+   *   01 06 00 11 00 01 : write 1 to reg 17
   uint8_t request[8] = {0x00, 0x06, 0x00, 0x12, 0x00, 0x01, 0x00, 0x00};
    */
   uint8_t request[8] = {0x00, 0x06, 0x00, 0x11, 0x00, 0x01, 0x00, 0x00};
@@ -811,7 +811,7 @@ void IRQ_htim6(void)
 	verx_count5++;
 	counter++;
 	counter_vyxod++;
-if(r1>2000)rs1=0; /* турбо каждый тик отключено — у горла заливало */
+if(r1>2000)rs1=0; /* турбо каждый тик отключено: у горла заливало */
 if(r2>2000)rs2=0;
 if(r3>2000)rs3=0;
 if(r4>2000)rs4=0;
@@ -1462,7 +1462,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 		modbus_process(); // Опрашиваем 4 весов по кругу
-		/* usb_mass_poll — в TIM6, не здесь: иначе Delay/tare режут поток */
+		/* usb_mass_poll: в TIM6, не здесь: иначе Delay/tare режут поток */
 		
 			if (flag_krutka==1&&flag_vyxod==0&&vxodsec>3000&&rezhim==0&&flag1==1&&flag2==1&&flag3==1&&flag4==1)//&&flag5==1
 	{
@@ -1486,7 +1486,7 @@ int main(void)
 		} else if (tare_button_done == 0 &&
 		           (HAL_GetTick() - tare_button_press_start) > 2000) {
 			/* Удержание ≥2 с: только peeling всех весов (не калибровка!).
-			 * Один раз за нажатие — даже если кнопка залипнет. */
+			 * Один раз за нажатие: даже если кнопка залипнет. */
 			if (rezhim == 0)
 			{
 				tare_button_done = 1;
@@ -1537,7 +1537,7 @@ int main(void)
 		butyl[3]=av[3];
 		butyl[4]=av[4];
 
-		/* Только свежий опрос + вес > порога — иначе не включаем колонну */
+		/* Только свежий опрос + вес > порога: иначе не включаем колонну */
 		if(scale_updated[0] && butyl[0]>200)
 		{
 			zakr1=1;

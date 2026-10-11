@@ -1007,7 +1007,7 @@ int main(void)
 	if(rezhim==1&&butylka==TARGET_BOTTLES&&stepper==0&&fill_pos_ready)
 	{
 		fill_pos_ready=0;
-		// Карусель только что остановилась — не берём вес, пока платформа не успокоится.
+		// Карусель только что остановилась: не берём вес, пока платформа не успокоится.
 		uint32_t update_start = HAL_GetTick();
 		while (HAL_GetTick() - update_start < SCALE_SETTLE_MS) {
 			modbus_process();

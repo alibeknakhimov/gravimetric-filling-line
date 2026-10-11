@@ -1,10 +1,10 @@
-# Architecture — before and after
+# Architecture: before and after
 
 Both diagrams describe the deployed machine from the electrical / firmware
 side. Mechanics (drum, nozzle axes, pumps, load cells) are unchanged between
 the two versions and are drawn in grey.
 
-## Before — 2021 system
+## Before: 2021 system
 
 ```mermaid
 flowchart LR
@@ -47,7 +47,7 @@ Pain points this hardware configuration created:
    bit-bang with a busy-wait on DRDY and a 1-million-iteration safety loop.
    Five of these in a row inside `while(1)`, plus a trailing `HAL_Delay(100)`,
    gives an effective sample rate in the single-digit Hz range.
-2. **No bus — a parallel ribbon.** Adding a sensor meant more wires and more
+2. **No bus: a parallel ribbon.** Adding a sensor meant more wires and more
    pins; the connector was already full.
 3. **Calibration hidden inside the enclosure.** The LCD and buttons sat on
    BRD1, which was mounted behind panels. Re-calibration meant opening the
@@ -56,7 +56,7 @@ Pain points this hardware configuration created:
    and input polling all shared one 10 kHz TIM6 interrupt. There was no room
    to add non-trivial sensing without hurting drum motion.
 
-## After — current system
+## After: current system
 
 ```mermaid
 flowchart LR
@@ -119,7 +119,7 @@ What the new picture is doing differently:
    handle without opening the machine.
 3. **Reversible retrofit.** The shield plugs into the existing BRD2 connector
    that used to carry the HX711-side ribbon. Pull the shield, plug the old
-   BRD1 ribbon back in — the machine is in the previous configuration.
+   BRD1 ribbon back in: the machine is in the previous configuration.
 4. **ISRs are specialised.** TIM6 drives the periodic motion tick (nozzle
    axes, pump pulsing, bottle counting). The drum-position event has been
    moved onto its own EXTI line, so it is no longer polled inside TIM6 at

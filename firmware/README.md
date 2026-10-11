@@ -2,7 +2,7 @@
 
 This directory contains the firmware sources for the STM32F4 stepper /
 fill controller. It is the closest snapshot of the production firmware
-that I have local access to — see the "A note on the firmware snapshot"
+that I have local access to: see the "A note on the firmware snapshot"
 section of the top-level [`README.md`](../README.md).
 
 ## Target
@@ -38,17 +38,17 @@ The following CubeMX vendor packs were trimmed from this snapshot because
 the project does not use them (CubeMX will re-create any of them on demand
 if `.ioc` is regenerated):
 
-- `MDK-ARM/` — the original Keil project, migrated to CubeIDE early on;
-- `Documents/` — vendor PDFs;
-- `Drivers/CMSIS/Lib/` — ~69 MB of pre-compiled CMSIS-DSP libraries (DSP
+- `MDK-ARM/`: the original Keil project, migrated to CubeIDE early on;
+- `Documents/`: vendor PDFs;
+- `Drivers/CMSIS/Lib/`: ~69 MB of pre-compiled CMSIS-DSP libraries (DSP
   is not used);
-- `Drivers/CMSIS/DSP/`, `NN/`, `RTOS/`, `RTOS2/`, `docs/` — unused.
+- `Drivers/CMSIS/DSP/`, `NN/`, `RTOS/`, `RTOS2/`, `docs/`: unused.
 
 ## What is NOT in this snapshot
 
 - The actually-deployed binary has a slightly different interrupt
   configuration (NVIC priorities and the split between the TIM6 motion
-  tick and the drum-position event) — see the top-level README note.
+  tick and the drum-position event): see the top-level README note.
   Business logic (Modbus master, USB CDC HMI, fill algorithm with
   soft-start and nozzle tracking, drum/nozzle/pump motion) is identical.
 - The legacy weighing-board firmware (STM32F1 + 5× HX711) and the legacy
@@ -63,7 +63,7 @@ if `.ioc` is regenerated):
 |---|---|
 | `Core/Src/main.c` | everything application-level: Modbus master state machine, fill algorithm, USB CDC HMI, operator-tare, TIM6 motion ISR body (`IRQ_htim6`) |
 | `Core/Src/stm32f4xx_it.c` | the actual IRQ vectors (`TIM6_DAC_IRQHandler`, `USART2_IRQHandler`, `EXTI9_5_IRQHandler`) and their routing into `main.c` |
-| `FitoF4.ioc` | the CubeMX configuration — authoritative for pin mapping, NVIC priorities, clock tree |
+| `FitoF4.ioc` | the CubeMX configuration: authoritative for pin mapping, NVIC priorities, clock tree |
 | `USB_DEVICE/` | ST's standard CDC device template, unmodified business logic (the sending path from main.c lives in `usb_mass_poll()`) |
 
 Entry points inside `main.c` (approximate line ranges):
@@ -76,7 +76,7 @@ Entry points inside `main.c` (approximate line ranges):
 - **Fill algorithm:** `update_fill_channel()`, `fill_channel_force_stop()`,
   `calculate_speeds()`, plus the fill-mode section at the bottom of the
   main loop (`rezhim == 3` branch).
-- **Motion:** `IRQ_htim6()` — all stepper pulse generation and axis state
+- **Motion:** `IRQ_htim6()`: all stepper pulse generation and axis state
   logic.
 - **USB CDC HMI:** `usb_mass_request_send()`, `usb_mass_poll()`,
   `usb_append_int()`, plus the TIM6 call in the ISR body.

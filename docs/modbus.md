@@ -17,7 +17,7 @@ state machine and the error handling.
 | MCU UART | USART2, PA2 (TX) / PA3 (RX), driven by `HAL_UART_Transmit` + `HAL_UART_Receive_IT` |
 
 The baud rate was raised from the shipped default to 115 200 as part of the
-field work when a 5th column was added — see
+field work when a 5th column was added: see
 [`field-notes.md`](field-notes.md).
 
 ## QLST register map used by this firmware
@@ -28,15 +28,15 @@ the authoritative reference. The subset actually touched by this firmware:
 | Address | Access | Length | Meaning | Notes |
 |---|---|---|---|---|
 | 0x0000 | R (0x03) | 2 regs (32-bit signed) | Real-time weight (gross or net depending on peel state) | Low word at addr 0, high word at addr 1. Units: 0.1 g (deci-grams) on this configuration. |
-| 0x0011 | W (0x06) | 1 reg | Peel command — value `1` zeroes current reading (net mode), value `2` cancels peeling (back to gross) | **Safe**: does NOT touch calibration in EEPROM. |
-| 0x0012 | W (0x06) | 1 reg | Zero calibration — overwrites the stored zero in EEPROM | **Do NOT use at runtime** (see field notes). |
+| 0x0011 | W (0x06) | 1 reg | Peel command: value `1` zeroes current reading (net mode), value `2` cancels peeling (back to gross) | **Safe**: does NOT touch calibration in EEPROM. |
+| 0x0012 | W (0x06) | 1 reg | Zero calibration: overwrites the stored zero in EEPROM | **Do NOT use at runtime** (see field notes). |
 
-Direct code reference — [`firmware/Core/Src/main.c:714..720`](../firmware/Core/Src/main.c):
+Direct code reference: [`firmware/Core/Src/main.c:714..720`](../firmware/Core/Src/main.c):
 
 ```c
 /* Было опасно: 0x12=1 = ZERO CALIBRATION (портит калибровку в EEPROM).
  * Нужно оператору: обнулить показания (peeling), как в мануале QLST:
- *   01 06 00 11 00 01  — write 1 to reg 17
+ *   01 06 00 11 00 01 : write 1 to reg 17
 uint8_t request[8] = {0x00, 0x06, 0x00, 0x12, 0x00, 0x01, 0x00, 0x00};
  */
 uint8_t request[8] = {0x00, 0x06, 0x00, 0x11, 0x00, 0x01, 0x00, 0x00};
@@ -139,16 +139,16 @@ with low jitter, not by the sensor bandwidth.
 
 ## Error handling
 
-- **Response timeout** — one bad slave does not stall the master. The master
+- **Response timeout**: one bad slave does not stall the master. The master
   aborts the UART RX, advances `current_sensor_index`, and moves on.
-- **CRC fail / framing / overrun** — same policy. UART error flags
+- **CRC fail / framing / overrun**: same policy. UART error flags
   (`__HAL_UART_CLEAR_OREFLAG/NEFLAG/FEFLAG`) are cleared before every TX so
   one glitch does not poison the next frame.
-- **Stale data in the fill loop** — if a column's last-successful-response
+- **Stale data in the fill loop**: if a column's last-successful-response
   timestamp is older than `FILL_SCALE_STALE_MS`, that column's pump pulses
   are paused until a fresh sample arrives. The other four columns keep
   running.
-- **Overall fill timeout** — if the entire fill cycle takes longer than
+- **Overall fill timeout**: if the entire fill cycle takes longer than
   `FILL_MAX_MS`, the fill is force-stopped. This catches pathological
   conditions (empty tank, clogged nozzle, dead indicator) without flooding
   the bottle.

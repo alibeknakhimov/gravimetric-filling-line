@@ -1,4 +1,4 @@
-# The 2021 system — a textual "before" picture
+# The 2021 system: a textual "before" picture
 
 This project is a modernization of an existing production machine. The
 mechanics (drum, nozzle axes, peristaltic pumps, load cells) and the
@@ -11,19 +11,19 @@ reproduced in this repository.** The description below is written from
 memory, from reading his sources locally, and from operating the deployed
 machine. It describes architecture and limitations, not his design files.
 
-![QLST indicator — one of the five that replaced the legacy weighing board](images/04_qlst_indicator.jpg)
+![QLST indicator: one of the five that replaced the legacy weighing board](images/04_qlst_indicator.jpg)
 
 ## Two boards, one serial link
 
 The 2021 system had two custom STM32 PCBs:
 
-- **BRD1 — weighing board (STM32F1).** Five HX711 24-bit ADC bridge
+- **BRD1: weighing board (STM32F1).** Five HX711 24-bit ADC bridge
   front-ends, one per load cell. CLK/DATA pairs bit-banged in software
   from GPIO; a 16×2 I²C LCD and three buttons on the board itself; local
   calibration data stored in the MCU's internal flash. BRD1 published the
   computed weights to BRD2 over a dedicated ribbon cable.
 
-- **BRD2 — stepper board (STM32F4).** One MCU driving every motor through
+- **BRD2: stepper board (STM32F4).** One MCU driving every motor through
   a Darlington array into industrial step/dir drivers: the drum stepper,
   five nozzle vertical axes, five peristaltic pump axes. All application
   logic ran inside a single TIM6 interrupt at ~10 kHz: motor pulses, I/O
@@ -42,7 +42,7 @@ The HX711 is a cheap part. Reading it in software is slow by design:
 The result: effective aggregate sample rate for five sensors sat in the
 single-digit Hz range on BRD1, and nothing else on BRD1 could run while
 those busy-waits were spinning. Calibration coefficients had to be set
-on a 16×2 LCD inside the machine enclosure with three buttons — the plant
+on a 16×2 LCD inside the machine enclosure with three buttons: the plant
 operator was never going to touch that, so re-calibration was always a
 service visit.
 
@@ -51,8 +51,8 @@ service visit.
 Every motion decision was inside one TIM6 ISR:
 
 - drum stepping, nozzle up/down for all five columns, pump pulses for all
-  five columns, bottle-presence inputs, mark sensor polling, control inputs
-  — all competing in the same 10 kHz slot;
+  five columns, bottle-presence inputs, mark sensor polling, control inputs,
+  all competing in the same 10 kHz slot;
 - there was no way to add a non-trivial sensing path (like a non-blocking
   bus master) without visibly hurting drum motion;
 - any `HAL_Delay` in a corner of the code would stop everything.
@@ -66,11 +66,11 @@ drum positions).
 Everything on the sensing side:
 
 - BRD1 as a whole was removed from the installed machine. The HX711s, the
-  16×2 LCD, the on-board calibration menu — all gone.
+  16×2 LCD, the on-board calibration menu. All gone.
 - Five standalone QLST industrial weighing indicators took over.
   Each has its own ADC, its own filter, its own display and its own
   calibration buttons (visible in the photo above). The operator can
-  re-calibrate any channel on the panel of the indicator — no enclosure
+  re-calibrate any channel on the panel of the indicator. No enclosure
   to open.
 - The ribbon cable from BRD1 to BRD2 was replaced by my
   [RS-485↔UART shield](shield.md), plugged into the exact same connector
