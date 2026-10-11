@@ -1,6 +1,6 @@
 # RS-485 ↔ UART shield
 
-![Shield, top](images/02_shield_top.jpg)
+<img src="images/02_shield_top.jpg" alt="Shield, top" width="280">
 
 The shield replaces the legacy weighing board (BRD1) without touching the
 stepper board (BRD2). It plugs into the connector that used to carry the

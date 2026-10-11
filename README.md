@@ -240,7 +240,7 @@ QLST register map, timing, and error handling:
 
 ## 7. RS-485↔UART shield (my hardware contribution)
 
-![Shield, top view](docs/images/02_shield_top.jpg)
+<img src="docs/images/02_shield_top.jpg" alt="Shield, top view" width="280">
 
 Prototype on a green proto-board. The ribbon from the stepper board to the
 old weighing board already carried UART between the two MCUs. The shield
