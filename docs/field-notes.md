@@ -17,28 +17,26 @@
 
 The cheapest path on paper was to keep the legacy weighing board (BRD1)
 and bolt Modbus onto it, so the plant would see one small change instead
-of a whole missing PCB. On the shared schematic I noticed that on one of
-the five HX711 channels, the two pins used for CLK/DATA on the MCU side
-mapped to UART-capable alternate-function pins. I unsoldered that HX711
-chip, soldered flying leads to its pads, re-mapped the pins in firmware
-to UART, and ran a cable from BRD1 to one QLST indicator over RS-485.
+of a whole missing PCB. On the shared schematic, one of the four HX711
+chips was connected to two MCU pins that also had a UART alternate
+function. I unsoldered that HX711, soldered flying leads to its pads,
+and ran those pins out to the new indicators.
 
-It worked. **But it had jitter, late weights and intermittent overfill.**
-BRD1's main loop was still doing blocking HX711 reads on the other four
-channels, and the new UART traffic shared time with those busy-waits.
-Dropping BRD1 entirely was the correct call, not a bolt-on.
+It worked, with jitter, delay, and overfill. BRD1's main loop was still
+bit-banging the other three HX711s, and the new UART traffic shared time
+with those busy-waits. Dropping BRD1 entirely was the correct call.
 
 **Lesson:** the "minimum-change" refactor is the wrong instinct when the
 thing you're trying to keep is itself the bottleneck.
 
 ## Weeks 2–3: the shield on a protoboard
 
-Moved to the real plan: throw out BRD1, build an adapter shield that plugs
-into the same ribbon connector on BRD2. Identified the two pins on BRD2's
-connector that mapped to USART-capable alternate functions. Wired a
-MAX485-class transceiver and a small step-down into a green protoboard
-([`shield.md`](shield.md)). Routed those two pins through the shield to
-the transceiver, then to the QLST bus.
+Moved to the real plan: remove BRD1, and build an adapter shield that
+plugs into the ribbon connector on BRD2. That ribbon already carried UART
+from the stepper MCU to the weighing board. Those UART pins go through the
+shield into a MAX485-class transceiver, then to the QLST bus
+([`shield.md`](shield.md)). The HX711 pin pair from week 1 stayed on the
+removed board. It is not the shield wiring.
 
 Fill quality improved immediately: because now BRD2 was asking the QLSTs
 directly instead of waiting on BRD1's dying busy-waits.

@@ -17,11 +17,11 @@ machine. It describes architecture and limitations, not his design files.
 
 The 2021 system had two custom STM32 PCBs:
 
-- **BRD1: weighing board (STM32F1).** Five HX711 24-bit ADC bridge
+- **BRD1: weighing board (STM32F1).** Four HX711 24-bit ADC bridge
   front-ends, one per load cell. CLK/DATA pairs bit-banged in software
   from GPIO; a 16×2 I²C LCD and three buttons on the board itself; local
   calibration data stored in the MCU's internal flash. BRD1 published the
-  computed weights to BRD2 over a dedicated ribbon cable.
+  computed weights to BRD2 over UART on the ribbon between the two boards.
 
 - **BRD2: stepper board (STM32F4).** One MCU driving every motor through
   a Darlington array into industrial step/dir drivers: the drum stepper,
@@ -36,10 +36,10 @@ The HX711 is a cheap part. Reading it in software is slow by design:
 - the chip signals "data ready" by pulling DATA low; the MCU must wait for
   that edge (busy-wait on the GPIO);
 - the MCU must then clock out 24 bits with microsecond-scale pulses on CLK;
-- a fifth channel means a fifth sequential busy-wait + bit-shift pass per
+- four channels means four sequential busy-wait and bit-shift passes per
   main-loop iteration.
 
-The result: effective aggregate sample rate for five sensors sat in the
+The result: effective aggregate sample rate for four sensors sat in the
 single-digit Hz range on BRD1, and nothing else on BRD1 could run while
 those busy-waits were spinning. Calibration coefficients had to be set
 on a 16×2 LCD inside the machine enclosure with three buttons: the plant
@@ -72,9 +72,9 @@ Everything on the sensing side:
   calibration buttons (visible in the photo above). The operator can
   re-calibrate any channel on the panel of the indicator. No enclosure
   to open.
-- The ribbon cable from BRD1 to BRD2 was replaced by my
-  [RS-485↔UART shield](shield.md), plugged into the exact same connector
-  on BRD2.
+- The UART ribbon from BRD2 to BRD1 now ends in my
+  [RS-485 to UART shield](shield.md), plugged into the same connector
+  on BRD2. The UART pins themselves did not move.
 - The weighing data path became a Modbus RTU bus (see
   [`modbus.md`](modbus.md)).
 

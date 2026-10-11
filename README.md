@@ -32,13 +32,13 @@ A rotating drum presents empty bottles to 5 nozzle columns. Each column has:
 A separate stepper drives the drum. One MCU on a Darlington-array shield
 controls all steppers. Weighing data comes in over a serial link.
 
-Single fill cycle (nozzle down → soft start → fast fill → slow finish → nozzle up):
-
-<video src="docs/videos/single_fill.mp4" controls width="640"></video>
-
 A longer continuous run of the line in operation:
 
 <video src="docs/videos/fill_cycle.mp4" controls width="640"></video>
+
+Single fill cycle (nozzle down → soft start → fast fill → slow finish → nozzle up):
+
+<video src="docs/videos/single_fill.mp4" controls width="640"></video>
 
 > If your Markdown viewer does not render HTML `<video>`, open the files
 > directly: [`single_fill.mp4`](docs/videos/single_fill.mp4) ·
@@ -48,11 +48,11 @@ A longer continuous run of the line in operation:
 
 | | Legacy (2021) | Final (this project) |
 |---|---|---|
-| Weighing front-end | Custom PCB with 5× HX711, bit-banged by STM32F1 | 5× QLST industrial indicators on an RS-485 Modbus RTU bus (addresses 1..5, 115 200 bps) |
-| Weighing MCU | Dedicated board, blocking `while(1)` polling | **Removed**: one MCU less, one PCB less, one ribbon cable less |
-| Bus wiring | Parallel ribbon to the HX711 board | 2-wire RS-485 differential, add a sensor by chaining |
+| Weighing front-end | Custom PCB with 4× HX711, bit-banged by STM32F1 | 5× QLST industrial indicators on an RS-485 Modbus RTU bus (addresses 1..5, 115 200 bps) |
+| Weighing MCU | Dedicated board, blocking `while(1)` polling | **Removed**: one MCU less, one PCB less |
+| Link between boards | UART already present on the ribbon from the stepper board to the weighing board | Same UART pins, now into a custom RS-485 shield on that connector (stepper PCB unchanged) |
 | Calibration | 2 buttons + 16×2 LCD on the hidden PCB | Buttons + display on each QLST indicator: operator-serviceable |
-| MCU → MCU link | Original cable from the HX711 board | Custom RS-485↔UART shield that **re-uses the existing cable connector** on the stepper board (no changes to that PCB) |
+| Scale bus | None: each HX711 was bit-banged on the weighing board | 2-wire RS-485, extra sensor by chaining |
 | HMI link | Long UART cable to a Raspberry Pi | USB CDC: single cable, standard VCP driver |
 | Firmware structure | Entire application inside TIM6 ISR; drum, nozzles, pumps and sensing all competing in one 10 kHz interrupt | TIM6 ISR owns timing-critical motion; the drum-position event is caught by its own EXTI line (decoupled from the 10 kHz tick); Modbus runs as a non-blocking state machine driven from the main loop with IT-based byte RX |
 | Fill control | Bang-bang: pump on if `g < target − 10`, off at `target − 1.5` | Soft start → fast fill → nozzle rises proportionally to current mass → slow finish → drip tail → hard stop |
@@ -91,7 +91,7 @@ the deployed machine; it does not reproduce his design files.
 The real story is not the architecture: it's what happened once the machine
 had to run bottles every day. Compressed version:
 
-- hacking an existing HX711 pin to carry UART before committing to the shield;
+- keeping the weighing board at first by unsoldering one HX711 and using its two UART-capable pins; that path glitched, so the board was removed and the existing UART ribbon was reused for the shield;
 - bringing the Modbus bus up to 115 200 bps + 40 Hz indicator refresh when the
   5th column was added for throughput;
 - discovering corrosion on reused loom connectors after 6 weeks;
@@ -131,13 +131,12 @@ QLST register map, timing, and error handling:
 
 ![Shield, top view](docs/images/02_shield_top.jpg)
 
-Prototype on a green proto-board. The original 2021 ribbon cable from the
-HX711 PCB terminates into the stepper board's existing connector; I identified
-the two pins carrying the HX711 CLK/DATA signals on that connector, re-purposed
-them as UART TX/RX, and routed them into a MAX485-class transceiver with DE/RE
-driven in software. This way **the stepper PCB is physically unmodified**.
-Pull the shield, plug the old HX711 board back in, and the machine reverts
-to the previous configuration.
+Prototype on a green proto-board. The ribbon from the stepper board to the
+old weighing board already carried UART between the two MCUs. The shield
+plugs into that same connector and routes those UART pins into a MAX485-class
+transceiver. The stepper PCB is physically unmodified. Pull the shield, plug
+the old weighing-board ribbon back in, and the machine reverts to the previous
+configuration.
 
 Pinout, transceiver, EMI countermeasures and what I'd do with another
 revision: [`docs/shield.md`](docs/shield.md).

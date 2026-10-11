@@ -2,9 +2,9 @@
 
 ![Shield, top](images/02_shield_top.jpg)
 
-The shield replaces the entire legacy weighing board (BRD1) without
-touching the stepper board (BRD2). It plugs into the exact connector that
-used to carry the ribbon from the old HX711 PCB.
+The shield replaces the legacy weighing board (BRD1) without touching the
+stepper board (BRD2). It plugs into the connector that used to carry the
+ribbon to BRD1. That ribbon already had UART between the two MCUs.
 
 ## What is on the board
 
@@ -16,25 +16,21 @@ Hand-wired on a green prototyping board. Visible from the top view:
   providing the 3.3 V / 5 V split from the single power rail available on
   the stepper board's connector.
 - **Screw terminals** for the RS-485 bus (A / B / GND and power).
-- **2×5 IDC header** that fits the ribbon cable connector that previously
-  carried HX711 CLK / DATA / power to the old weighing board. Two of those
-  pins, the ones that used to be HX711 CLK and DATA on one of the five
-  channels, are now routed through the shield as UART TX / RX from the
-  stepper MCU.
+- **2×5 IDC header** that fits the ribbon connector on the stepper board.
+  The two conductors that were already UART TX / RX toward the weighing
+  board are routed into the transceiver. No HX711 signals ever lived on
+  this connector.
 
 ## Why those two pins
 
-Looking at the legacy board schematic shared by the previous engineer, the
-MCU side of the HX711 CLK / DATA pair on channel 5 happened to be a pair
-of GPIOs with alternate-function UART capability on the STM32F4 stepper
-board. That meant I could re-map those pins in the stepper firmware from
-GPIO to USART2, run the ribbon cable through the shield, and feed the same
-two conductors into the MAX485 transceiver, all without changing a single
-trace on the stepper board.
+The weighing board and the stepper board already spoke UART over this
+ribbon. After BRD1 was removed, those same pins were the natural place
+to attach the RS-485 transceiver: the stepper PCB did not need a respin,
+and plugging the old ribbon back in restores the previous link.
 
-The side effect: pull the shield, plug the original HX711-side ribbon back
-in, revert the firmware, and the machine is in the previous configuration.
-That reversibility was a soft requirement from the plant.
+The two HX711 pins that also happened to be UART-capable were a different
+experiment, on BRD1, while I was still trying to keep that board. That
+attempt is described below. It is not how the shield is wired.
 
 ## Signal flow
 
@@ -99,11 +95,11 @@ What would be done differently on a next revision:
 
 ## Why the shield exists at all
 
-The alternative was to keep the legacy weighing MCU and bolt Modbus onto
-it. I actually tried that first: identified an existing HX711 CLK / DATA
-pair on the legacy board that mapped to UART-capable pins, unsoldered the
-HX711 and ran UART through those pads to the first indicator. The machine
-worked, but it inherited the legacy MCU's blocking main loop and its
-calibration menu that lived inside the enclosure. The shield + removal of
-BRD1 was the fix that let the whole weighing chain become operator-serviceable
-and bus-scalable. See [`legacy.md`](legacy.md) for the "before" picture.
+The first attempt kept BRD1. On its schematic, one of the four HX711 chips
+was wired to two MCU pins that also had a UART alternate function. I
+removed that HX711 and soldered the indicator leads to those pads. The
+line ran, but with jitter, delay, and overfill: the other three HX711s
+were still bit-banged in the blocking main loop. Removing BRD1 and moving
+the link onto the existing UART ribbon, through this shield, is what made
+the weighing chain operator-serviceable and bus-scalable. See
+[`legacy.md`](legacy.md) for the "before" picture.

@@ -1,8 +1,9 @@
 # Architecture: before and after
 
-Both diagrams describe the deployed machine from the electrical / firmware
-side. Mechanics (drum, nozzle axes, pumps, load cells) are unchanged between
-the two versions and are drawn in grey.
+Both diagrams describe the machine from the electrical and firmware side.
+The drum, nozzle axes, pumps, and load cells are drawn in grey. The fifth
+column was added during this retrofit, so the "before" picture has four
+stations and the "after" picture has five.
 
 ## Before: 2021 system
 
@@ -10,15 +11,15 @@ the two versions and are drawn in grey.
 flowchart LR
     subgraph MECH[Mechanics - unchanged]
         DRUM[Rotating bottle drum]
-        NZ[5 x Nozzle vertical axes]
-        PMP[5 x Peristaltic pumps]
-        LC[5 x Load cells]
+        NZ[4 x Nozzle vertical axes]
+        PMP[4 x Peristaltic pumps]
+        LC[4 x Load cells]
     end
 
     subgraph BRD1[Weighing board - STM32F1]
-        HX["5 x HX711 ADC - bit-banged GPIO<br/>busy-wait on DRDY, ~5-10 Hz effective"]
+        HX["4 x HX711 ADC, bit-banged GPIO, busy-wait on DRDY"]
         LCD["16x2 I2C LCD + 3 buttons<br/>on-board calibration menu"]
-        FLASH["Internal flash:<br/>density, 5 calibration gains"]
+        FLASH["Internal flash: density and calibration gains"]
     end
 
     subgraph BRD2[Stepper board - STM32F4]
@@ -30,12 +31,12 @@ flowchart LR
 
     LC --> HX
     HX --> BRD1
-    BRD1 -->|ribbon cable, dedicated connector| BRD2
+    BRD1 -->|UART on the ribbon| BRD2
     BRD2 --> DRV
     DRV --> DRUM
     DRV --> NZ
     DRV --> PMP
-    PI <-->|long UART cable| BRD2
+    PI -->|long UART cable| BRD2
 
     classDef mech fill:#eee,stroke:#999,color:#333;
     class MECH,DRUM,NZ,PMP,LC mech;
@@ -45,10 +46,11 @@ Pain points this hardware configuration created:
 
 1. **HX711 polling blocks everything on BRD1.** Each `Hx_Read_N()` is a GPIO
    bit-bang with a busy-wait on DRDY and a 1-million-iteration safety loop.
-   Five of these in a row inside `while(1)`, plus a trailing `HAL_Delay(100)`,
+   Four of these in a row inside `while(1)`, plus a trailing `HAL_Delay(100)`,
    gives an effective sample rate in the single-digit Hz range.
-2. **No bus: a parallel ribbon.** Adding a sensor meant more wires and more
-   pins; the connector was already full.
+2. **The ribbon was already UART, not a scale bus.** The two boards talked
+   over UART on that cable. Adding a scale still meant another HX711 and
+   another blocking read on BRD1. The shield later reused those same UART pins.
 3. **Calibration hidden inside the enclosure.** The LCD and buttons sat on
    BRD1, which was mounted behind panels. Re-calibration meant opening the
    machine.
@@ -96,14 +98,14 @@ flowchart LR
     Q3 --- X485
     Q4 --- X485
     Q5 --- X485
-    X485 -->|USART2 TX/RX via original connector| MB
+    X485 -->|USART2 on the original UART ribbon pins| MB
     MB --> FA
     FA --> TIM
     TIM --> DRV
     DRV --> DRUM
     DRV --> NZ
     DRV --> PMP
-    PI <-->|USB cable| CDC
+    PI -->|USB cable| CDC
 
     classDef mech fill:#eee,stroke:#999,color:#333;
     class MECH,DRUM,NZ,PMP,LC mech;
@@ -118,8 +120,8 @@ What the new picture is doing differently:
    calibration UI is now on each QLST unit, which the plant operator can
    handle without opening the machine.
 3. **Reversible retrofit.** The shield plugs into the existing BRD2 connector
-   that used to carry the HX711-side ribbon. Pull the shield, plug the old
-   BRD1 ribbon back in: the machine is in the previous configuration.
+   whose ribbon used to carry UART to the weighing board. Pull the shield,
+   plug the old BRD1 ribbon back in: the machine is in the previous configuration.
 4. **ISRs are specialised.** TIM6 drives the periodic motion tick (nozzle
    axes, pump pulsing, bottle counting). The drum-position event has been
    moved onto its own EXTI line, so it is no longer polled inside TIM6 at

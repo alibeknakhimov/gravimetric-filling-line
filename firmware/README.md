@@ -51,7 +51,7 @@ if `.ioc` is regenerated):
   tick and the drum-position event): see the top-level README note.
   Business logic (Modbus master, USB CDC HMI, fill algorithm with
   soft-start and nozzle tracking, drum/nozzle/pump motion) is identical.
-- The legacy weighing-board firmware (STM32F1 + 5× HX711) and the legacy
+- The legacy weighing-board firmware (STM32F1 + 4× HX711) and the legacy
   stepper-board firmware are the previous engineer's property and are
   **not** reproduced in this repository. The architectural "before"
   picture lives in [`../docs/legacy.md`](../docs/legacy.md) and
