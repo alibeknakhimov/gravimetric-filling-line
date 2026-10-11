@@ -1,9 +1,8 @@
-# Firmware snapshot
+# Firmware
 
 This directory contains the firmware sources for the STM32F4 stepper /
-fill controller. It is the closest snapshot of the production firmware
-that I have local access to: see the "A note on the firmware snapshot"
-section of the top-level [`README.md`](../README.md).
+fill controller. See "A note on the firmware sources" in the top-level
+[`README.md`](../README.md).
 
 ## Target
 
@@ -20,8 +19,8 @@ section of the top-level [`README.md`](../README.md).
 
 | Peripheral | Config | Purpose |
 |---|---|---|
-| TIM6 | prescaler 167, period 99 → ~10 kHz, update IRQ | motion tick: nozzle axes, pump pulsing, bottle counting, USB CDC background TX |
-| EXTI line 5 | GPIO interrupt | drum-position event, decoupled from the TIM6 motion tick |
+| TIM7 | prescaler 167, period 99 → ~10 kHz, update IRQ, NVIC priority 0 | drum stepper only |
+| TIM6 | prescaler 167, period 99 → ~10 kHz, update IRQ, NVIC priority 1 | nozzles, pump pulsing, bottle counting, USB CDC background TX |
 | USART2 | PA2 / PA3, 115 200 8N1, IT RX per byte | Modbus RTU master to the QLST weighing bus |
 | USB_OTG_FS | PA11 / PA12, CDC class | HMI link to the Raspberry Pi (replaces long UART) |
 | GPIO | ~30 lines on ports A/B/C/D/E | step/dir/enable to Darlington array, end-switches, operator buttons |
@@ -34,7 +33,7 @@ toolchain. The build has no external dependencies beyond the STM32F4 HAL
 and the ST USB CDC device middleware, both vendored under `Drivers/` and
 `Middlewares/`.
 
-The following CubeMX vendor packs were trimmed from this snapshot because
+The following CubeMX vendor packs were trimmed from this tree because
 the project does not use them (CubeMX will re-create any of them on demand
 if `.ioc` is regenerated):
 
@@ -44,13 +43,11 @@ if `.ioc` is regenerated):
   is not used);
 - `Drivers/CMSIS/DSP/`, `NN/`, `RTOS/`, `RTOS2/`, `docs/`: unused.
 
-## What is NOT in this snapshot
+## What is not in this tree
 
-- The actually-deployed binary has a slightly different interrupt
-  configuration (NVIC priorities and the split between the TIM6 motion
-  tick and the drum-position event): see the top-level README note.
-  Business logic (Modbus master, USB CDC HMI, fill algorithm with
-  soft-start and nozzle tracking, drum/nozzle/pump motion) is identical.
+- The hex last flashed on the machine is not stored here. This source is
+  the line firmware with drum stepping moved onto TIM7. See the top-level
+  README note.
 - The legacy weighing-board firmware (STM32F1 + 4× HX711) and the legacy
   stepper-board firmware are the previous engineer's property and are
   **not** reproduced in this repository. The architectural "before"
@@ -61,8 +58,8 @@ if `.ioc` is regenerated):
 
 | File | What it holds |
 |---|---|
-| `Core/Src/main.c` | everything application-level: Modbus master state machine, fill algorithm, USB CDC HMI, operator-tare, TIM6 motion ISR body (`IRQ_htim6`) |
-| `Core/Src/stm32f4xx_it.c` | the actual IRQ vectors (`TIM6_DAC_IRQHandler`, `USART2_IRQHandler`, `EXTI9_5_IRQHandler`) and their routing into `main.c` |
+| `Core/Src/main.c` | Modbus master, fill algorithm, USB CDC HMI, operator tare, `IRQ_htim6` (nozzles and pumps), `IRQ_htim7` (drum) |
+| `Core/Src/stm32f4xx_it.c` | IRQ vectors (`TIM6_DAC_IRQHandler`, `TIM7_IRQHandler`, `USART2_IRQHandler`) and their routing into `main.c` |
 | `FitoF4.ioc` | the CubeMX configuration: authoritative for pin mapping, NVIC priorities, clock tree |
 | `USB_DEVICE/` | ST's standard CDC device template, unmodified business logic (the sending path from main.c lives in `usb_mass_poll()`) |
 
@@ -76,7 +73,7 @@ Entry points inside `main.c` (approximate line ranges):
 - **Fill algorithm:** `update_fill_channel()`, `fill_channel_force_stop()`,
   `calculate_speeds()`, plus the fill-mode section at the bottom of the
   main loop (`rezhim == 3` branch).
-- **Motion:** `IRQ_htim6()`: all stepper pulse generation and axis state
-  logic.
+- **Motion:** `IRQ_htim7()` steps the drum. `IRQ_htim6()` steps nozzles
+  and pumps.
 - **USB CDC HMI:** `usb_mass_request_send()`, `usb_mass_poll()`,
   `usb_append_int()`, plus the TIM6 call in the ISR body.

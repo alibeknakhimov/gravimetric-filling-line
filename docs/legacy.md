@@ -86,10 +86,10 @@ What was kept:
 
 What was rewritten in BRD2's firmware:
 
-- The giant TIM6 ISR was split up: motion stays in TIM6, the drum
-  position event moved to its own EXTI line, the Modbus master became a
-  non-blocking state machine running from the main loop, USB CDC replaced
-  the long UART run to the Raspberry Pi HMI.
+- The giant TIM6 ISR was split up: the drum stepper moved to TIM7 at
+  NVIC priority 0, nozzles and pumps stay in TIM6 at priority 1, the
+  Modbus master became a non-blocking state machine running from the
+  main loop, USB CDC replaced the long UART run to the Raspberry Pi HMI.
 - The two-level bang-bang fill control was replaced by a four-phase
   pump profile with a nozzle that physically tracks the rising liquid
   surface, plus per-column adaptive pump speed. See

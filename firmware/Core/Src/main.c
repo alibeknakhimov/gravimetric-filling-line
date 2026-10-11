@@ -118,17 +118,19 @@ int rozliv_count5=0;
 int flag_rozliv5=0;
 int a5=0;
 //----------------------------------------------------------------------------------------
-int stepper=0;
-int counter=0;
+volatile int stepper=0;
+volatile int counter=0;
 int step=0;
 int step2=0;
 int stepspeed=7;
-int metka=0;
+volatile int metka=0;
 int met=0;
 int count_metka=0;
 int flag_metka=0;
 int metka2=0;
-int flag_one=0;
+volatile int flag_one=0;
+volatile int carousel_steps_left=0;
+volatile int fill_pos_ready=0;
 
 int rrz1=0;
 int rrz2=0;
@@ -171,7 +173,7 @@ int rs4=0;
 int rs5=0;
 
 
-int flagi=0;
+volatile int flagi=0;
 char str[50];
 int av[6];
 int butyl[6];
@@ -196,6 +198,7 @@ int alibek_metka = 0;
 
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim6;
+TIM_HandleTypeDef htim7;
 
 UART_HandleTypeDef huart2;
 
@@ -750,6 +753,7 @@ void tare_all_scales(void) {
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM6_Init(void);
+static void MX_TIM7_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
@@ -757,6 +761,96 @@ static void MX_USART2_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static void carousel_step_pulse(void)
+{
+	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_6, GPIO_PIN_RESET);
+	HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_7);
+}
+
+/* Drum only. TIM7 priority 0, so nozzle and pump work in TIM6 cannot stretch a step. */
+void IRQ_htim7(void)
+{
+	counter++;
+
+	if (stepper == 0)
+	{
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_6, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_7, GPIO_PIN_RESET);
+		step2 = 0;
+		return;
+	}
+
+	if (stepper == 1)
+	{
+		carousel_step_pulse();
+		return;
+	}
+
+	if (counter <= stepspeed)
+	{
+		return;
+	}
+	counter = 0;
+
+	if (stepper == 2)
+	{
+		metka++;
+		carousel_step_pulse();
+	}
+	else if (stepper == 3 && metka < step)
+	{
+		metka++;
+		carousel_step_pulse();
+	}
+	else if (stepper == 4 && metka != 640 && flagi > 7000)
+	{
+		if (flag_one > 0) metka++;
+		carousel_step_pulse();
+	}
+	else if (stepper == 5 && metka != 1280)
+	{
+		metka++;
+		carousel_step_pulse();
+	}
+	else if (stepper == 6 && metka != 1920)
+	{
+		metka++;
+		carousel_step_pulse();
+	}
+	else if (stepper == 7 && metka != (640 * 4))
+	{
+		metka++;
+		carousel_step_pulse();
+	}
+	else if (stepper == 8 && metka != (640 * 5))
+	{
+		metka++;
+		carousel_step_pulse();
+	}
+	else if (stepper == 9 && metka != (640 * 6))
+	{
+		metka++;
+		carousel_step_pulse();
+	}
+	else if (stepper == 10 && metka != (640 * 7))
+	{
+		metka++;
+		carousel_step_pulse();
+	}
+	else if (stepper == 55 && carousel_steps_left > 0)
+	{
+		metka++;
+		if (metka > 6399) metka = 0;
+		carousel_steps_left--;
+		if (carousel_steps_left == 0)
+		{
+			stepper = 0;
+			if (butylka == TARGET_BOTTLES) fill_pos_ready = 1;
+		}
+		carousel_step_pulse();
+	}
+}
+
 void IRQ_htim6(void)
 {
 	flag1=HAL_GPIO_ReadPin(GPIOC,GPIO_PIN_15);
@@ -809,7 +903,6 @@ void IRQ_htim6(void)
 	verx_count3++;
 	verx_count4++;
 	verx_count5++;
-	counter++;
 	counter_vyxod++;
 if(r1>2000)rs1=0; /* турбо каждый тик отключено: у горла заливало */
 if(r2>2000)rs2=0;
@@ -849,109 +942,9 @@ if (rezhim == 3) {
 	else if (rozliv5 != 0 && (scale_last_ok_ms[4] == 0 || (tnow - scale_last_ok_ms[4]) > FILL_SCALE_STALE_MS)) { rozliv5 = 0; }
 }
 //----------------------------------------------------------------------------------------
-		if(stepper==0)
-	{
-	HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);
-	//HAL_GPIO_WritePin(GPIOC,GPIO_PIN_8,GPIO_PIN_SET);
-	HAL_GPIO_WritePin(GPIOC,GPIO_PIN_7,GPIO_PIN_RESET);
-	step2=0;
-	}
-		if(stepper==1)
-	{	
-	
-	HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);
-	//HAL_GPIO_WritePin(GPIOC,GPIO_PIN_8,GPIO_PIN_SET);
-	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
-	}
-	
-			if(stepper==2&&counter>stepspeed)
-	{	
-	counter=0;
-	metka++;
-	HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);
-	//HAL_GPIO_WritePin(GPIOC,GPIO_PIN_8,GPIO_PIN_SET);
-	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
-	
-	}
-				if(stepper==3&&metka<step&&counter>stepspeed)
-	{
-	counter=0;
-	metka++;
-	HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);
-	//HAL_GPIO_WritePin(GPIOC,GPIO_PIN_8,GPIO_PIN_SET);
-	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
-	}
 	if(flag1==1&&flag2==1&&flag3==1&&flag4==1&&flag5==1)
 	{
 		flagi++;
-	}
-					if(stepper==4&&metka!=640&&counter>stepspeed&&flagi>7000)
-	{
-	counter=0;
-	if(flag_one>0)metka++;
-	HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);
-	//HAL_GPIO_WritePin(GPIOC,GPIO_PIN_8,GPIO_PIN_SET);
-	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
-	}
-	
-						if(stepper==5&&metka!=1280&&counter>stepspeed)
-	{
-	counter=0;
-	metka++;
-	HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);
-	//HAL_GPIO_WritePin(GPIOC,GPIO_PIN_8,GPIO_PIN_SET);
-	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
-	}
-	
-							if(stepper==6&&metka!=1920&&counter>stepspeed)
-	{
-	counter=0;
-	metka++;
-	HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);
-	//HAL_GPIO_WritePin(GPIOC,GPIO_PIN_8,GPIO_PIN_SET);
-	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
-	}
-								if(stepper==7&&metka!=(640*4)&&counter>stepspeed)
-	{
-	counter=0;
-	metka++;
-	HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);
-	//HAL_GPIO_WritePin(GPIOC,GPIO_PIN_8,GPIO_PIN_SET);
-	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
-	}
-								if(stepper==8&&metka!=(640*5)&&counter>stepspeed)
-	{
-	counter=0;
-	metka++;
-	HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);
-	//HAL_GPIO_WritePin(GPIOC,GPIO_PIN_8,GPIO_PIN_SET);
-	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
-	}
-								if(stepper==9&&metka!=(640*6)&&counter>stepspeed)
-	{
-	counter=0;
-	metka++;
-	HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);
-	//HAL_GPIO_WritePin(GPIOC,GPIO_PIN_8,GPIO_PIN_SET);
-	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
-	}
-								if(stepper==10&&metka!=(640*7)&&counter>stepspeed)
-	{
-	counter=0;
-	metka++;
-	HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);
-	//HAL_GPIO_WritePin(GPIOC,GPIO_PIN_8,GPIO_PIN_SET);
-	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
-	}
-	
-									if(stepper==55&&metka!=krutka&&counter>stepspeed)
-	{
-	counter=0;
-	metka++;
-	if(metka==krutka)stepper=0;
-	HAL_GPIO_WritePin(GPIOC,GPIO_PIN_6,GPIO_PIN_RESET);
-	//HAL_GPIO_WritePin(GPIOC,GPIO_PIN_8,GPIO_PIN_SET);
-	HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_7);
 	}
 //----------------------------------------------------------------------------------------
 	if(rozliv1==0&&dimona_knopka==1)
@@ -1444,10 +1437,12 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_TIM6_Init();
+  MX_TIM7_Init();
   MX_USART2_UART_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 	HAL_TIM_Base_Start_IT(&htim6);
+	HAL_TIM_Base_Start_IT(&htim7);
 	
 	stepper=4;
 	HAL_Delay(10000);
@@ -1475,6 +1470,7 @@ int main(void)
 		butylka++;
 		vxodsec=0;
 		HAL_Delay(500);
+		carousel_steps_left=640;
 		stepper=55;
 		HAL_Delay(1500);
 	}
@@ -1507,8 +1503,9 @@ int main(void)
 		flag_krutka=1;
 	}
 	
-	if(rezhim==1&&butylka==TARGET_BOTTLES&&krutka==metka)
+	if(rezhim==1&&butylka==TARGET_BOTTLES&&stepper==0&&fill_pos_ready)
 	{
+		fill_pos_ready=0;
 		// фоновый опрос Modbus. Поэтому переменные av[0..4] сейчас хранят старый вес!
 		// 1. Обязательная пауза 1000мс для механической стабилизации весов после вращения карусели
 		uint32_t update_start = HAL_GetTick();
@@ -1746,6 +1743,27 @@ static void MX_TIM6_Init(void)
 
   /* USER CODE END TIM6_Init 2 */
 
+}
+
+static void MX_TIM7_Init(void)
+{
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  htim7.Instance = TIM7;
+  htim7.Init.Prescaler = 167;
+  htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim7.Init.Period = 99;
+  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim7, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /**

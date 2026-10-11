@@ -54,20 +54,131 @@ Single fill cycle (nozzle down → soft start → fast fill → slow finish → 
 | Calibration | 2 buttons + 16×2 LCD on the hidden PCB | Buttons + display on each QLST indicator: operator-serviceable |
 | Scale bus | None: each HX711 was bit-banged on the weighing board | 2-wire RS-485, extra sensor by chaining |
 | HMI link | Long UART cable to a Raspberry Pi | USB CDC: single cable, standard VCP driver |
-| Firmware structure | Entire application inside TIM6 ISR; drum, nozzles, pumps and sensing all competing in one 10 kHz interrupt | TIM6 ISR owns timing-critical motion; the drum-position event is caught by its own EXTI line (decoupled from the 10 kHz tick); Modbus runs as a non-blocking state machine driven from the main loop with IT-based byte RX |
+| Firmware structure | Entire application inside TIM6 ISR; drum, nozzles, pumps and sensing all competing in one 10 kHz interrupt | TIM7 steps the drum at priority 0; TIM6 (priority 1) owns nozzles, pumps and bottle counting; USART2 (priority 0) receives Modbus one byte at a time; the fill state machine runs from the main loop |
 | Fill control | Bang-bang: pump on if `g < target − 10`, off at `target − 1.5` | Soft start → fast fill → nozzle rises proportionally to current mass → slow finish → drip tail → hard stop |
 | Throughput | **480 bottles/hour** | **650 bottles/hour (+35 %)** |
 
-Architecture diagrams: see [`docs/architecture.md`](docs/architecture.md).
+## Architecture
+
+The drum, nozzle axes, pumps and load cells stayed. The fifth column was
+added during this retrofit, so the first diagram has four stations and the
+second has five. Longer notes: [`docs/architecture.md`](docs/architecture.md).
+
+### Before: 2021
+
+```mermaid
+flowchart LR
+    subgraph MECH[Mechanics - unchanged]
+        DRUM[Rotating bottle drum]
+        NZ[4 x Nozzle vertical axes]
+        PMP[4 x Peristaltic pumps]
+        LC[4 x Load cells]
+    end
+
+    subgraph BRD1[Weighing board - STM32F1]
+        HX["4 x HX711 ADC, bit-banged GPIO, busy-wait on DRDY"]
+        LCD["16x2 I2C LCD + 3 buttons<br/>on-board calibration menu"]
+        FLASH["Internal flash: density and calibration gains"]
+    end
+
+    subgraph BRD2[Stepper board - STM32F4]
+        IRQ["TIM6 ISR @ 10 kHz<br/>drum + nozzles + pumps + I/O<br/>everything in one interrupt"]
+        DRV["Industrial step/dir drivers<br/>via Darlington array"]
+    end
+
+    PI[Raspberry Pi HMI]
+
+    LC --> HX
+    HX --> BRD1
+    BRD1 -->|UART on the ribbon| BRD2
+    BRD2 --> DRV
+    DRV --> DRUM
+    DRV --> NZ
+    DRV --> PMP
+    PI -->|long UART cable| BRD2
+
+    classDef mech fill:#eee,stroke:#999,color:#333;
+    class MECH,DRUM,NZ,PMP,LC mech;
+```
+
+Four HX711 channels were bit-banged in a blocking loop on a second MCU.
+Weights crossed the ribbon as UART. Drum, nozzles, pumps and inputs all
+shared one 10 kHz TIM6 interrupt.
+
+### After: this firmware
+
+```mermaid
+flowchart LR
+    subgraph MECH[Mechanics - unchanged]
+        DRUM[Rotating bottle drum]
+        NZ[5 x Nozzle vertical axes]
+        PMP[5 x Peristaltic pumps]
+        LC[5 x Load cells]
+    end
+
+    subgraph QLST["5 x QLST weighing indicators<br/>Modbus RTU slaves, addr 1..5<br/>built-in filter, operator buttons + display"]
+        Q1[QLST #1]
+        Q2[QLST #2]
+        Q3[QLST #3]
+        Q4[QLST #4]
+        Q5[QLST #5]
+    end
+
+    subgraph SHIELD["RS-485 to UART shield<br/>plugs into BRD2 original connector"]
+        X485[MAX485-class transceiver]
+    end
+
+    subgraph BRD2["Stepper board - STM32F4 - firmware rewritten"]
+        TIM["TIM6 ISR @ 10 kHz, priority 1<br/>nozzles + pumps"]
+        DRUMIRQ["TIM7 ISR @ 10 kHz, priority 0<br/>drum stepper only"]
+        MB["Modbus RTU master<br/>state machine from main loop<br/>HAL_UART_Receive_IT, CRC16"]
+        FA["Fill algorithm:<br/>soft-start / fast / slow / drip tail<br/>+ nozzle-follows-mass"]
+        CDC["USB CDC device<br/>HMI link"]
+        DRV["Industrial step/dir drivers<br/>via Darlington array (unchanged)"]
+    end
+
+    PI[Raspberry Pi HMI]
+
+    LC --> QLST
+    Q1 ---|2-wire RS-485 bus, 115200 bps| X485
+    Q2 --- X485
+    Q3 --- X485
+    Q4 --- X485
+    Q5 --- X485
+    X485 -->|USART2 on the original UART ribbon pins| MB
+    MB --> FA
+    FA --> TIM
+    FA --> DRUMIRQ
+    TIM --> DRV
+    DRUMIRQ --> DRV
+    DRV --> DRUM
+    DRV --> NZ
+    DRV --> PMP
+    PI -->|USB cable| CDC
+
+    classDef mech fill:#eee,stroke:#999,color:#333;
+    class MECH,DRUM,NZ,PMP,LC mech;
+```
+
+The weighing board is gone. Five indicators sit on one RS-485 bus. The
+shield plugs into the same ribbon connector and uses the UART pins that
+used to talk to that board. TIM7 steps the drum at NVIC priority 0. TIM6,
+at priority 1, drives nozzles and pumps. USART2, also priority 0, receives
+Modbus one byte at a time.
+
+| Peripheral | Config | Purpose |
+|---|---|---|
+| TIM7 | 10 kHz, NVIC priority 0 | drum stepper only (PC6 enable, PC7 step) |
+| TIM6 | 10 kHz, NVIC priority 1 | nozzles, pumps, bottle counting, USB CDC TX |
+| USART2 PA2/PA3 | 115 200 8N1, RX IT, priority 0 | Modbus RTU master to the QLST bus |
+| USB_OTG_FS | CDC | HMI link to the Raspberry Pi |
 
 ### Development process (not a release train)
 
-The firmware under `firmware/` is the single deployed version. Some
-sub-features, for example moving the drum-position event onto its own EXTI
-line, decoupled from the 10 kHz TIM6 tick, were first prototyped on a
-side configuration before being merged into the production firmware. That
-side configuration is not part of this repository; it existed only as a
-local experiment.
+The firmware under `firmware/` is one tree. Drum stepping lives in TIM7,
+nozzles and pumps stay in TIM6, and Modbus reception stays in USART2.
+A side experiment was used to split the drum out of TIM6; that experiment
+is not in the repository. Its interrupt layout is what this tree uses.
 
 ## 3. Why this is a modernization, not a rewrite
 
@@ -143,10 +254,9 @@ revision: [`docs/shield.md`](docs/shield.md).
 
 ## 8. What I would do differently next time
 
-- Split NVIC priorities properly: group drum stepping at a higher preemption
-  priority than USART2 RX, instead of leaning on the state machine to keep
-  them from fighting (both are currently at priority 0/0, and it works, but it is
-  fragile).
+- Give TIM7 a strictly higher preemption priority than USART2 if a long
+  Modbus receive ISR ever stretches a drum step. Today they share priority 0,
+  and TIM6 (nozzles and pumps) sits at priority 1 so it cannot preempt either.
 - Isolated DC-DC + reference ground on the RS-485 side, instead of a shared
   ground over an 80 cm run. I knew this at the time; the isolated converter
   was simply not procurable locally within the project schedule.
@@ -156,31 +266,23 @@ revision: [`docs/shield.md`](docs/shield.md).
 - Replace per-column copy-pasted logic with a `fill_column_t` struct and a
   single state function.
 
-## 9. A note on the firmware snapshot
+## 9. A note on the firmware sources
 
-The sources placed under `firmware/` are the closest snapshot of the production
-firmware I have local access to. The actually-deployed build differs in one
-specific area: the interrupt configuration (NVIC priorities and the
-split between the TIM6 motion tick and the drum-position event) matches a
-side configuration I used to prototype that split before merging it back
-into the main firmware. The business logic (Modbus RTU master, USB CDC
-HMI link, fill algorithm with soft-start and nozzle tracking, drum / nozzle /
-pump motion) is the same between the snapshot in this repo and the
-deployed build.
-
-I have called this out explicitly rather than silently publishing the
-snapshot as "the deployed firmware", because on an interview that
-distinction is the kind of thing that would come up and should come up.
+`firmware/` is the production source as reconstructed on this machine.
+The fill algorithm, USB CDC link and Modbus master come from the firmware
+that ran the line. Drum stepping was still inside TIM6 in that copy. The
+separate drum interrupt (TIM7 at priority 0, TIM6 dropped to priority 1,
+USART2 left at priority 0) was proven on a side experiment and is now in
+this tree. The hex last flashed on the machine is not stored here.
 
 ## 10. Repository layout
 
 ```
 .
 ├── README.md: you are here
-├── README.ru.md: Russian version
 ├── LICENSE: MIT (my sources only)
 ├── docs/
-│   ├── architecture.md: before / after block diagrams (Mermaid)
+│   ├── architecture.md: same diagrams as above, plus the pain points in prose
 │   ├── fill-algorithm.md: dose profile, nozzle tracking, pump phases
 │   ├── modbus.md: QLST register map, state machine, timing
 │   ├── shield.md: RS-485↔UART adapter board
@@ -188,7 +290,7 @@ distinction is the kind of thing that would come up and should come up.
 │   ├── field-notes.md: three months of field debugging
 │   ├── images/: photos
 │   └── videos/: short clips (single_fill.mp4)
-└── firmware/: closest snapshot of the production firmware (STM32F4)
+└── firmware/: production firmware sources (STM32F4)
 ```
 
 ## 11. Disclaimers

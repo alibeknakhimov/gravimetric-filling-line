@@ -1,5 +1,7 @@
 # Architecture: before and after
 
+The same diagrams are on the repository front page, in [`README.md`](../README.md).
+
 Both diagrams describe the machine from the electrical and firmware side.
 The drum, nozzle axes, pumps, and load cells are drawn in grey. The fifth
 column was added during this retrofit, so the "before" picture has four
@@ -82,8 +84,8 @@ flowchart LR
     end
 
     subgraph BRD2["Stepper board - STM32F4 - firmware rewritten"]
-        TIM["TIM6 ISR @ 10 kHz<br/>nozzles + pumps<br/>(motion tick only)"]
-        EXTI["EXTI line 5 ISR<br/>drum-position event<br/>decoupled from TIM6"]
+        TIM["TIM6 ISR @ 10 kHz, priority 1<br/>nozzles + pumps"]
+        DRUMIRQ["TIM7 ISR @ 10 kHz, priority 0<br/>drum stepper only"]
         MB["Modbus RTU master<br/>state machine from main loop<br/>HAL_UART_Receive_IT, CRC16"]
         FA["Fill algorithm:<br/>soft-start / fast / slow / drip tail<br/>+ nozzle-follows-mass"]
         CDC["USB CDC device<br/>HMI link"]
@@ -101,7 +103,9 @@ flowchart LR
     X485 -->|USART2 on the original UART ribbon pins| MB
     MB --> FA
     FA --> TIM
+    FA --> DRUMIRQ
     TIM --> DRV
+    DRUMIRQ --> DRV
     DRV --> DRUM
     DRV --> NZ
     DRV --> PMP
@@ -122,25 +126,23 @@ What the new picture is doing differently:
 3. **Reversible retrofit.** The shield plugs into the existing BRD2 connector
    whose ribbon used to carry UART to the weighing board. Pull the shield,
    plug the old BRD1 ribbon back in: the machine is in the previous configuration.
-4. **ISRs are specialised.** TIM6 drives the periodic motion tick (nozzle
-   axes, pump pulsing, bottle counting). The drum-position event has been
-   moved onto its own EXTI line, so it is no longer polled inside TIM6 at
-   10 kHz and no longer competes with the motion tick. Modbus RX runs in the
-   USART2 IRQ byte-by-byte, and fill-state logic plus USB CDC run from the
-   main loop.
+4. **ISRs are specialised.** TIM7 steps the drum at NVIC priority 0.
+   TIM6, at priority 1, drives nozzles, pumps and bottle counting, so a
+   long nozzle pass cannot stretch a drum step. USART2 sits at priority 0
+   with TIM7 and receives Modbus one byte at a time. Fill-state logic and
+   USB CDC run from the main loop.
 
 ## MCU resources (current firmware)
 
 | Peripheral | Config | Purpose |
 |---|---|---|
-| TIM6 | prescaler 167, period 99 → 10 kHz, update IRQ | motion tick: nozzle axes, pump pulsing, bottle counting |
-| EXTI line 5 | GPIO interrupt | drum-related event, decoupled from the TIM6 motion tick |
-| USART2 (PA2/PA3) | 115 200 8N1, async, RX IT per byte | Modbus RTU master link to QLST bus |
+| TIM7 | prescaler 167, period 99 → 10 kHz, update IRQ, NVIC priority 0 | drum stepper only (PC6 enable, PC7 step) |
+| TIM6 | prescaler 167, period 99 → 10 kHz, update IRQ, NVIC priority 1 | nozzles, pump pulsing, bottle counting, USB CDC background TX |
+| USART2 (PA2/PA3) | 115 200 8N1, async, RX IT per byte, NVIC priority 0 | Modbus RTU master link to QLST bus |
 | USB_OTG_FS (PA11/PA12) | USB device, CDC class | HMI link to Raspberry Pi (replaces long UART) |
 | GPIO | ~30 lines on A/B/C/D/E | step/dir/enable to Darlington array, end-switches, operator buttons |
 
-NVIC: `TIM6_DAC_IRQn`, `USART2_IRQn` and `EXTI9_5_IRQn` are all at preemption
-0 / subpriority 0 in the current build. Interaction between the motion tick,
-the drum event and the Modbus RX is handled by the firmware state machines
-instead of hardware preemption. This is called out in the "what I'd do
-differently" section of the main README.
+NVIC: `TIM7_IRQn` and `USART2_IRQn` are preemption 0. `TIM6_DAC_IRQn` is
+preemption 1, so nozzle and pump work cannot preempt a drum step or a
+Modbus byte. TIM7 and USART2 share a level, so they do not nest in each
+other.
